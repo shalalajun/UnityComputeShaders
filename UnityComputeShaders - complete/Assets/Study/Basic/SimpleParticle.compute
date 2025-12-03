@@ -1,0 +1,53 @@
+// Each #kernel tells which function to compile; you can have many kernels
+// 1. 커널 정의 (이 함수를 실행하겠다!)
+#pragma kernel CSMain
+
+
+// 2. 데이터 구조 (C#이랑 약속한 모양 - 렌더 쉐이더랑 똑같아야 함)
+struct Particle
+{
+    float3 position;
+    float3 color;
+};
+
+// 3. 읽고 쓸 수 있는 택배 상자 (RW = Read/Write) RWStructuredBuffer 는 형식이 정해진 타입드 어레이 이다.TypedArray(형식화 배열)
+RWStructuredBuffer<Particle> particleBuffer;
+
+// 4. 외부에서 시간 값을 받아옴 (움직이게 하려고)
+float time;
+
+// 5. 스레드 설정 (64명이 한 조)
+
+[numthreads(64,1,1)]
+
+//GPU에는 for문이 없다 그래서 uint3 id : SV_DispatchThreadID 를 사용한다.
+//SV_DispatchThreadID 는 
+//SV: System Value (시스템 값). "GPU야, 이건 내가 계산하는 게 아니라 네가 내부적으로 관리하는 값이야."
+//DispatchThreadID: 전체 작업 공간에서의 절대적인 번호(ID).
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+
+    // 내 번호표 (0 ~ 9999...)
+    uint index = id.x;
+
+    // 1. [중요] 상자를 열어서 기존 데이터를 꺼내옵니다.
+    // (그래야 "기존 y값"이 뭔지 알 수 있습니다)
+    Particle p = particleBuffer[index];
+
+   // 2. x 좌표 설정 (줄 세우기)
+    float x = index * 0.1;
+
+// 3. y 좌표 계산 (기존 위치 + 0.05)
+    // 아까 꺼내온 p 안의 position.y를 사용합니다.
+    float y = p.position.y + 0.05;
+
+
+    // (옵션) 너무 높이 가면 다시 바닥으로 (안 그러면 하늘 뚫고 나갑니다)
+    if (y > 10.0) y = 0.0;
+
+    particleBuffer[index].position = float3(x, y, 0);
+
+    // 색깔은 무조건 흰색(1,1,1)으로 고정
+    particleBuffer[index].color = float3(1, 1, 1);
+}
