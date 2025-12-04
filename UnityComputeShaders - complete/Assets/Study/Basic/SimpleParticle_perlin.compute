@@ -1,0 +1,136 @@
+#pragma kernel CSMain
+
+// 1. 데이터 구조 및 버퍼
+struct Particle
+{
+    float3 position;
+    float3 color;
+};
+
+RWStructuredBuffer<Particle> particleBuffer;
+float time;
+
+// ---------------------------------------------------------
+// 2. 노이즈 함수 모음 (수정하지 마세요)
+// ---------------------------------------------------------
+float3 mod289(float3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+float4 mod289(float4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+float4 permute(float4 x) { return mod289(((x * 34.0) + 1.0) * x); }
+float4 taylorInvSqrt(float4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+
+float snoise(float3 v)
+{
+    const float2 C = float2(1.0 / 6.0, 1.0 / 3.0);
+    const float4 D = float4(0.0, 0.5, 1.0, 2.0);
+
+    float3 i = floor(v + dot(v, C.yyy));
+    float3 x0 = v - i + dot(i, C.xxx);
+
+    float3 g = step(x0.yzx, x0.xyz);
+    float3 l = 1.0 - g;
+    float3 i1 = min(g.xyz, l.zxy);
+    float3 i2 = max(g.xyz, l.zxy);
+    float3 x1 = x0 - i1 + C.xxx;
+    float3 x2 = x0 - i2 + C.yyy;
+    float3 x3 = x0 - D.yyy;
+
+    i = mod289(i);
+    float4 p = permute(permute(permute(
+        i.z + float4(0.0, i1.z, i2.z, 1.0))
+        + i.y + float4(0.0, i1.y, i2.y, 1.0))
+        + i.x + float4(0.0, i1.x, i2.x, 1.0));
+
+    float n_ = 0.142857142857;
+    float3 ns = n_ * D.wyz - D.xzx;
+
+    float4 j = p - 49.0 * floor(p * ns.z * ns.z);
+
+    float4 x_ = floor(j * ns.z);
+    float4 y_ = floor(j - 7.0 * x_);
+
+    float4 x = x_ * ns.x + ns.yyyy;
+    float4 y = y_ * ns.x + ns.yyyy;
+    float4 h = 1.0 - abs(x) - abs(y);
+
+    float4 b0 = float4(x.xy, y.xy);
+    float4 b1 = float4(x.zw, y.zw);
+
+    float4 s0 = floor(b0) * 2.0 + 1.0;
+    float4 s1 = floor(b1) * 2.0 + 1.0;
+    float4 sh = -step(h, float4(0.0, 0.0, 0.0, 0.0));
+
+    float4 a0 = b0.xzyw + s0.xzyw * sh.xxyy;
+    float4 a1 = b1.xzyw + s1.xzyw * sh.zzww;
+
+    float3 p0 = float3(a0.xy, h.x);
+    float3 p1 = float3(a0.zw, h.y);
+    float3 p2 = float3(a1.xy, h.z);
+    float3 p3 = float3(a1.zw, h.w);
+
+    float4 norm = taylorInvSqrt(float4(dot(p0, p0), dot(p1, p1), dot(p2, p2), dot(p3, p3)));
+    p0 *= norm.x;
+    p1 *= norm.y;
+    p2 *= norm.z;
+    p3 *= norm.w;
+
+    float4 m = max(0.6 - float4(dot(x0, x0), dot(x1, x1), dot(x2, x2), dot(x3, x3)), 0.0);
+    m = m * m;
+    return 42.0 * dot(m * m, float4(dot(p0, x0), dot(p1, x1), dot(p2, x2), dot(p3, x3)));
+}
+
+// ---------------------------------------------------------
+// 3. 메인 작업 (다양한 속도 적용됨)
+// ---------------------------------------------------------
+[numthreads(64,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint index = id.x;
+    Particle p = particleBuffer[index];
+
+    // 1. [속도 다양화] 
+    // 내 번호(index)를 기반으로 0.0 ~ 1.0 사이의 고유한 랜덤값(성격)을 만듭니다.
+    float myPersonality = snoise(float3(index * 0.1, 0, 0)) * 0.5 + 0.5;
+
+    // lerp(최소속도, 최대속도, 비율)
+    // 0.005(느림보) ~ 0.04(날쌘돌이) 사이에서 내 성격에 맞는 속도가 정해집니다.
+    float mySpeed = lerp(0.005, 0.04, myPersonality);
+
+    // 2. [터뷸런스] 노이즈로 흔들기 (시간을 느리게 흐르게: time * 0.2)
+    float3 noisePos = p.position * 0.3 + float3(0, time * 0.2, 0);
+    float noiseX = snoise(noisePos);
+    float noiseZ = snoise(noisePos + float3(123.4, 0, 0)); // Z축은 다른 패턴
+    float noiseY = snoise(noisePos + float3(0, 567.8, 0)); // Y축 흔들림
+
+    // 3. [이동 적용]
+    // 좌우(X,Z)는 살짝 흔들리고
+    p.position.x += noiseX * 0.02;
+    p.position.z += noiseZ * 0.02;
+    
+    // 위(Y)로는 '내 고유 속도'로 올라가면서 + 바람(noiseY)을 좀 탑니다.
+    p.position.y += mySpeed + (noiseY * 0.005);
+
+    // 4. [리셋]
+    // 너무 높이 가거나(10.0), 옆으로 너무 퍼지면(반경 10.0) 바닥으로 소환
+    if (p.position.y > 20.0 || length(p.position) > 20.0)
+    {
+        // 바닥에서 랜덤 위치 잡기
+        float rX = snoise(float3(index, time, 0)) * 5.0; // 반경 5.0 안에서 생성
+        float rZ = snoise(float3(index, time, 1)) * 5.0;
+        
+        p.position = float3(rX, 0.0, rZ);
+        
+        // 다시 태어날 때 Y위치를 살짝 흩뿌려서 뭉침 방지
+        p.position.y = -abs(snoise(float3(index, 0, 0))) * 2.0; 
+    }
+
+    // 5. [색상]
+    // 빠른 놈(myPersonality가 1에 가까움)은 더 밝게!
+    float alpha = 1.0 - (p.position.y / 10.0); // 위로 갈수록 흐려짐
+    float3 baseColor = float3(0.1, 0.3, 0.8);  // 기본 파란색
+    float3 brightColor = float3(0.6, 0.8, 1.0); // 밝은 하늘색
+    
+    // 성격에 따라 색 섞기
+    p.color = lerp(baseColor, brightColor, myPersonality) * alpha;
+
+    particleBuffer[index] = p;
+}

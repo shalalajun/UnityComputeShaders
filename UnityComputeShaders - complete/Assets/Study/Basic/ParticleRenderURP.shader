@@ -1,21 +1,14 @@
-Shader "Custom/ParticleRenderURP"
+Shader "Custom/ParticleRenderStandard"
 {
-    Properties
-    {
-        _BaseColor ("Base Color", Color) = (1,1,1,1)
-    }
-
     SubShader
     {
-        Tags { "RenderType"="Opaque" "RenderPipeline"="UniversalPipeline" }
+        // 기본 렌더링 설정
+        Tags { "RenderType"="Opaque" }
         LOD 100
 
         Pass
         {
-            Name "ForwardLit"
-            Tags { "LightMode"="UniversalForward" }
-
-            HLSLPROGRAM
+            CGPROGRAM // HLSLPROGRAM 대신 CGPROGRAM을 씁니다
             #pragma vertex vert
             #pragma fragment frag
             
@@ -23,62 +16,61 @@ Shader "Custom/ParticleRenderURP"
             #pragma multi_compile_instancing
             #pragma instancing_options procedural:setup
 
-            // URP 핵심 라이브러리 포함
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "UnityCG.cginc" // URP 라이브러리 대신 이걸 씁니다
 
             struct Particle
             {
-                float3 position;
-                float3 color;
+                float4 position;
+                float4 color;
             };
 
             // 읽기 전용 버퍼
             StructuredBuffer<Particle> _ParticleBuffer;
 
-            struct Attributes
+            struct appdata
             {
-                float4 positionOS : POSITION;
+                float4 vertex : POSITION;
                 uint instanceID : SV_InstanceID;
             };
 
-            struct Varyings
+            struct v2f
             {
-                float4 positionCS : SV_POSITION;
-                float4 color : COLOR;
+                float4 pos : SV_POSITION;
+                float4 col : COLOR;
             };
 
             void setup()
             {
-                // 여기선 비워둬도 됩니다.
-                // 위치 계산을 vertex 쉐이더 안에서 직접 하니까요.
+                // 위치 계산을 vertex 안에서 하므로 비워둠
             }
 
-            Varyings vert(Attributes input)
+            v2f vert (appdata v)
             {
-                Varyings output;
+                v2f o;
 
-                // 1. 버퍼에서 내 번호(instanceID) 데이터 꺼내기
-                float3 dataPos = _ParticleBuffer[input.instanceID].position;
-                float3 dataCol = _ParticleBuffer[input.instanceID].color;
+                // 1. 내 번호(instanceID)에 맞는 데이터를 꺼냅니다.
+                // (appdata에 SV_InstanceID를 선언해야 UNITY_GET_INSTANCE_ID로 가져올 수 있음)
+                // 하지만 여기선 v.instanceID를 직접 씁니다.
+                float3 dataPos = _ParticleBuffer[v.instanceID].position;
+                float3 dataCol = _ParticleBuffer[v.instanceID].color;
 
-                // 2. 오브젝트 공간(Object Space) 위치 계산
-                // 원래 큐브 위치(input.positionOS)에 파티클 위치(dataPos) 더하기
-                // * 0.1은 큐브 크기를 작게 줄이는 역할
-                float3 worldPos = dataPos + input.positionOS.xyz * 0.1;
+                // 2. 오브젝트 공간 위치 계산
+                // 원래 큐브 위치(v.vertex) + 파티클 위치(dataPos)
+                float3 worldPos = dataPos + v.vertex.xyz * 1.0; // 크기 1.0
 
-                // 3. 월드 좌표를 화면 좌표(Clip Space)로 변환 (URP 전용 함수)
-                // TransformObjectToHClip 대신 직접 월드 좌표를 넣어서 변환
-                output.positionCS = TransformWorldToHClip(worldPos);
+                // 3. 화면 좌표 변환 (Built-in 전용 함수)
+                // mul(UNITY_MATRIX_VP, float4(worldPos, 1.0)) 과 같습니다.
+                o.pos = UnityObjectToClipPos(float4(worldPos, 1.0));
                 
-                output.color = float4(dataCol, 1.0);
-                return output;
+                o.col = float4(dataCol, 1.0);
+                return o;
             }
 
-            float4 frag(Varyings input) : SV_Target
+            float4 frag (v2f i) : SV_Target
             {
-                return input.color;
+                return i.col;
             }
-            ENDHLSL
+            ENDCG
         }
     }
 }
