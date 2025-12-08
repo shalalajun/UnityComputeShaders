@@ -1,0 +1,36 @@
+#pragma kernel CSMain
+
+struct Particle { float3 position; };
+struct Vertex { float3 position; };
+
+RWStructuredBuffer<Particle> particleBuffer;
+RWStructuredBuffer<Vertex> vertexBuffer; // 쓰기 전용 버퍼
+
+float deltaTime;
+
+[numthreads(64, 1, 1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    int index = id.x; // 내 파티클 번호 (0 ~ 999)
+
+    // 1. 파티클(영혼) 위치 이동 (위로 상승)
+    Particle p = particleBuffer[index];
+    p.position.y += 1.0 * deltaTime;
+    if (p.position.y > 5.0) p.position.y = -5.0; // 반복
+    particleBuffer[index] = p; // 이동한 위치 저장
+
+    // 2. 버텍스(껍데기) 위치 설정 ★여기가 핵심★
+    // 내 파티클 번호가 10번이면, 버텍스 버퍼의 30, 31, 32번 칸을 내가 쓴다.
+    int vIndex = index * 3; 
+
+    float size = 0.2; // 삼각형 크기
+
+    // 첫 번째 점 (중심보다 조금 위)
+    vertexBuffer[vIndex + 0].position = p.position + float3(0, size, 0);
+    
+    // 두 번째 점 (중심보다 오른쪽 아래)
+    vertexBuffer[vIndex + 1].position = p.position + float3(size, -size, 0);
+
+    // 세 번째 점 (중심보다 왼쪽 아래)
+    vertexBuffer[vIndex + 2].position = p.position + float3(-size, -size, 0);
+}

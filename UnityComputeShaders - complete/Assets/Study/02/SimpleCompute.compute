@@ -1,0 +1,26 @@
+#pragma kernel CSMain
+
+// [간소화 1] 복잡한 구조체 다 버림
+// 그냥 위치(x,y,z) 정보만 담은 배열입니다.
+RWStructuredBuffer<float3> positionBuffer;
+
+float deltaTime;
+
+[numthreads(64, 1, 1)] // 64명씩 한 조
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // [간소화 2] 내 번호(id.x)에 해당하는 위치 데이터를 가져옴
+    float3 pos = positionBuffer[id.x];
+
+    // [간소화 3] 물리 계산 다 삭제 -> 무조건 위(y)로 조금씩 이동
+    pos.y += 1.0 * deltaTime; 
+
+    // [간소화 4] 너무 높이 올라가면 바닥으로 초기화 (무한 반복)
+    if (pos.y > 5.0)
+    {
+        pos.y = -5.0;
+    }
+
+    // 계산된 위치를 다시 저장
+    positionBuffer[id.x] = pos;
+}

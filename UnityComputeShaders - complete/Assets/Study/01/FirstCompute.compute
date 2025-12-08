@@ -1,0 +1,41 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+#pragma kernel solidYellow
+#pragma kernel solidRed
+#pragma kernel splitScreen
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWTexture2D<float4> Result;
+
+int texResolution;
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+
+    // Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
+      float r = id.x / 512.0;
+      float g = id.y / 256.0;
+      Result[id.xy] = float4(r, g, 0, 1);
+}
+
+[numthreads(8,8,1)]
+void solidYellow(uint3 id : SV_DispatchThreadID)
+{
+    Result[id.xy] = float4(1.0, 1.0, 0, 1.0);
+}
+
+[numthreads(8,8,1)]
+void solidRed(uint3 id : SV_DispatchThreadID)
+{
+    Result[id.xy] = float4(1.0, 0.0, 0, 1.0);
+}
+
+[numthreads(8,8,1)]
+void splitScreen(uint3 id : SV_DispatchThreadID)
+{
+    int haflRes = texResolution >> 1;// /2 대신 >> 1을 쓰는게 속도가 빨라서 대신 쓴다 /2써도 된다.
+    Result[id.xy] = float4(step(haflRes, id.x), step(haflRes, id.y), 0, 1.0);
+}
