@@ -19,6 +19,14 @@ public static class FunctionLibrary
         return functions[(int)name];
     }
 
+    // 현재 함수(name)를 받아서 다음 순서의 함수를 반환합니다.
+    public static FunctionName GetNextFunctionName (FunctionName name) {
+        // (int)name < functions.Length - 1 : 현재가 마지막 함수가 아니라면?
+        // ? name + 1 : 다음 번호(Enum)를 반환
+        // : 0        : 마지막이라면 처음(0번, Wave)으로 돌아감
+        return (int)name < functions.Length - 1 ? name + 1 : 0;
+    }
+
     public static Vector3 Sphere (float u, float v, float t) {
         // 1. 반지름(r)을 요동치게 만듭니다. (비틀린 패턴)
         float r = 0.9f + 0.1f * Sin(PI * (6f * u + 4f * v + t));
@@ -92,6 +100,28 @@ public static class FunctionLibrary
         p.y /= 1f + 10f * d;
         p.z = v;
         return p;
+    }
+
+    // 현재 함수(name)가 아닌 다른 함수를 무작위로 반환
+    public static FunctionName GetRandomFunctionNameOtherThan (FunctionName name) {
+        // 1. 일단 1번 인덱스부터 마지막 인덱스 사이에서 랜덤으로 하나 뽑습니다. (0번 제외)
+        var choice = (FunctionName)Random.Range(1, functions.Length);
+        
+        // 2. 만약 뽑은 게 현재 함수랑 같다면? -> 대신 0번(Wave)을 반환합니다.
+        //    다르다면? -> 뽑은 거 그대로 반환합니다.
+        // (이렇게 하면 while 반복문 없이도 겹치지 않는 랜덤을 뽑을 수 있습니다.)
+        return choice == name ? 0 : choice;
+    }
+
+    // [추가] 두 함수를 섞어서 반환하는 Morph 함수
+    // Function 델리게이트를 인자로 받습니다.
+    public static Vector3 Morph (
+        float u, float v, float t, Function from, Function to, float progress
+    ) {
+        // SmoothStep으로 0~1 사이 진행률을 부드러운 곡선으로 만듭니다.
+        // LerpUnclamped를 쓰는 이유: SmoothStep이 이미 0~1을 보장하므로, 
+        // 불필요한 Clamp(범위 제한) 연산을 줄이기 위함입니다.
+        return Vector3.LerpUnclamped(from(u, v, t), to(u, v, t), SmoothStep(0f, 1f, progress));
     }
 }
 
