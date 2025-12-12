@@ -1,5 +1,6 @@
 #pragma kernel FunctionKernel
 
+#define PI 3.14159265358979323846
 
 RWStructuredBuffer<float3> _Positions;
 uint _Resolution;
@@ -9,26 +10,26 @@ float2 GetUV (uint3 id){
     return (id.xy + 0.5) * _Step - 1.0;
 }
 
-void SetPosition(uint id, float3 position){
-    if (id.x < _Resolution && id.y < _Resolution) {
-		_Positions[id.x + id.y * _Resolution] = position;
-	}
+// [수정 1] Vector3 -> float3
+float3 Wave (float u, float v, float t) {
+    float3 p; 
+    p.x = u;
+    p.y = sin(PI * (u + v + t));
+    p.z = v;
+    return p;
 }
 
-#define PI 3.14159265358979323846
-
-float3 Wave(float u, float v, float t)
-    {
-        Vector3 p;
-        p.x = u;
-        p.y = sin(PI * (u + v + t));
-        p.z = v;
-        return p;
+// [수정 2] uint id -> uint3 id (x, y 좌표를 쓰기 위함)
+void SetPosition (uint3 id, float3 position) {
+    if (id.x < _Resolution && id.y < _Resolution) {
+        _Positions[id.x + id.y * _Resolution] = position;
     }
+}
 
 [numthreads(8, 8, 1)]
-
-void FunctionKernel(uint3 id: SV_DispatchThreadID){
+void FunctionKernel (uint3 id: SV_DispatchThreadID) {
     float2 uv = GetUV(id);
-    SetPosition(id, Wave(uv.x, uv.y, _Time))
+    
+    // [수정 3] 끝에 세미콜론(;) 추가
+    SetPosition(id, Wave(uv.x, uv.y, _Time));
 }
