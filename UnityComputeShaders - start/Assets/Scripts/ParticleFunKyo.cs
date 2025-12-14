@@ -4,7 +4,7 @@ using UnityEngine;
 
 #pragma warning disable 0649
 
-public class ParticleFun : MonoBehaviour
+public class ParticleFunKyo : MonoBehaviour
 {
 
     private Vector2 cursorPos;
@@ -28,13 +28,22 @@ public class ParticleFun : MonoBehaviour
     const int SIZE_PARTICLE = 7 * sizeof(float);
     const int SIZE_VERTEX = 6 * sizeof(float);
 
-    public int particleCount = 1000000;
+    public int particleCount = 100000;
     public Material material; // GPU버퍼에서 데이터를 가져와서 점을찍을 수 있는 쉐이더야 한다.(중요)
     public ComputeShader shader;
   
 
     [Range(1, 10)]
     public int pointSize = 2;
+
+
+    [Range(0.01f, 1.0f)]
+    public float quadSize = 0.1f;
+
+    int numParticles;
+    int numVerticesInMesh;
+
+
 
     int kernelID; // 커널아이디를 담을 멤버 변수
 
@@ -50,7 +59,7 @@ public class ParticleFun : MonoBehaviour
         Init();
     }
 
-    void Init()
+    void Init_first()
     {
         // initialize the particles
         Particle[] particleArray = new Particle[particleCount];
@@ -102,10 +111,72 @@ public class ParticleFun : MonoBehaviour
         material.SetInt("_PointSize", pointSize);
     }
 
+    void Init()
+    {
+        kernelID = shader.FindKernel("CSMain");
+        uint threadsX;
+        shader.GetKernelThreadGroupSizes(kernelID, out threadsX, out _, out _);
+        groupSizeX = Mathf.CeilToInt((float)particleCount / (float)threadsX);
+        numParticles = groupSizeX * (int)threadsX;
+
+
+        Particle[] particleArray = new Particle[numParticles];
+
+        int numVertices = numParticles * 6;
+        Vertex[] vertexArray = new Vertex[numVertices]; 
+        
+        Vector3 pos = new Vector3();
+
+        int index;
+        
+        for (int i = 0; i < numParticles; i++)
+        {
+            pos.Set(Random.value * 2 - 1.0f, Random.value * 2 - 1.0f, Random.value * 2 - 1.0f);
+            pos.Normalize();
+            pos *= Random.value;
+            pos *= 0.5f;
+
+            particleArray[i].position.Set(pos.x, pos.y, pos.z + 3);
+            particleArray[i].velocity.Set(0,0,0);
+          
+            // Initial life value
+            particleArray[i].life = Random.value * 5.0f + 1.0f;
+
+            index = i * 6;
+
+            //triangle1 bottom-left, top-left, top-right
+            vertexArray[index].uv.Set(0,0);
+            vertexArray[index+1].uv.Set(0,1);
+            vertexArray[index+2].uv.Set(1,0);
+
+            //triangle2 bottom-left, top-right, bottom-right
+            vertexArray[index+3].uv.Set(0,0);
+            vertexArray[index+4].uv.Set(1,1);
+            vertexArray[index+5].uv.Set(1,0);
+
+        }
+
+        // create compute buffers
+        particleBuffer = new ComputeBuffer(numParticles, SIZE_PARTICLE);
+        particleBuffer.SetData(particleArray);
+
+
+        vertexBuffer = new ComputeBuffer(numParticles, SIZE_PARTICLE);
+        vertexBuffer.SetData(particleArray);
+        
+        // bind the compute buffers to the shader and the compute shader
+        shader.SetBuffer(kernelID, "particleBuffer", particleBuffer);    
+        shader.SetBuffer(kernelID, "vertexBuffer", vertexBuffer);
+
+        shader.SetFloat("halfSize", quadSize * 0.5f);
+
+        material.SetBuffer("VertexBuffer", vertexBuffer);        
+    }
+
     void OnRenderObject()
     {
         material.SetPass(0);
-        Graphics.DrawProceduralNow(MeshTopology.Points, 1, particleCount);
+        Graphics.DrawProceduralNow(MeshTopology.Triangles, 6, numParticles);
     }
 
     void OnDestroy()

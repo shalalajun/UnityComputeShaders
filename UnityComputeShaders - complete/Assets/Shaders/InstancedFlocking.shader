@@ -13,6 +13,10 @@
  
 		CGPROGRAM
 
+
+        #pragma surface surf Standard vertex:vert addshadow nolightmap
+        #pragma instancing_options procedural:setup
+
 		sampler2D _MainTex;
 		sampler2D _BumpMap;
 		sampler2D _MetallicGlossMap;
@@ -25,8 +29,6 @@
 		half _Metallic;
 		fixed4 _Color;
  
-        #pragma surface surf Standard vertex:vert addshadow nolightmap
-        #pragma instancing_options procedural:setup
 
         float4x4 _LookAtMatrix;
         float4x4 _Matrix;

@@ -1,57 +1,62 @@
 ﻿Shader "Custom/Particle" {
-	Properties     
-    {         
+    Properties {         
         _PointSize("Point size", Float) = 5.0     
     }  
+    SubShader {
+        Pass {
+            Tags{ "RenderType" = "Opaque" }
+            LOD 200
+            
+            // [수정] 점이 겹칠 때 예쁘게 보이도록
+            Blend SrcAlpha One 
+            ZWrite Off 
 
-	SubShader {
-		Pass {
-			Tags{ "RenderType" = "Opaque" }
-			LOD 200
-			Blend SrcAlpha one
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma target 5.0
 
-			CGPROGRAM
-			// Physically based Standard lighting model, and enable shadows on all light types
-			#pragma vertex vert
-			#pragma fragment frag
+            #include "UnityCG.cginc"
 
-			uniform float _PointSize;
+            uniform float _PointSize;
 
-			#include "UnityCG.cginc"
+            struct Particle{
+                float3 position;
+                float3 velocity;
+                float life;
+            };
 
-			// Use shader model 3.0 target, to get nicer looking lighting
-			#pragma target 5.0
-		
-			struct v2f{
-				float4 position : SV_POSITION;
-				float4 color : COLOR;
-				float life : LIFE;
-				float size: PSIZE;
-			};
-		
+            StructuredBuffer<Particle> particleBuffer;
+        
+            struct v2f{
+                float4 position : SV_POSITION;
+                float4 color : COLOR;
+                float size: PSIZE;
+            };
+        
+            // [중요] Metal에서는 uint로 타입을 명확히!
+            v2f vert(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
+            {
+                v2f o = (v2f)0;
 
-			v2f vert(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
-			{
-				v2f o = (v2f)0;
+                // C#에서 (Points, 1, count)로 호출했으므로 
+                // instance_id가 0 ~ 999999 입니다.
+                // vertex_id는 항상 0입니다.
+                Particle p = particleBuffer[instance_id];
 
-				// Color
-				o.color = float4(1,0,0,1);
+                o.position = UnityObjectToClipPos(float4(p.position, 1));
+                o.color = float4(1, 0.5, 0.2, 1); // 잘 보이는 주황색
+                o.size = _PointSize;
 
-				// Position
-				o.position = UnityObjectToClipPos(float4(0,0,0,0));
-				o.size = 1;
+                return o;
+            }
 
-				return o;
-			}
-
-			float4 frag(v2f i) : COLOR
-			{
-				return i.color;
-			}
-
-
-			ENDCG
-		}
-	}
-	FallBack Off
+            float4 frag(v2f i) : COLOR
+            {
+                return i.color;
+            }
+            ENDCG
+        }
+    }
+    FallBack Off
 }
