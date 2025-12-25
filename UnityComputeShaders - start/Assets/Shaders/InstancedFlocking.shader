@@ -31,6 +31,7 @@
  
 
         float4x4 _LookAtMatrix;
+        //이동과 회전을 담당할 4x4 메트릭스
         float4x4 _Matrix;
         float3 _BoidPosition;
 

@@ -44,8 +44,8 @@ public class InstancedFlocking : MonoBehaviour
     public Material boidMaterial;
 
     ComputeBuffer argsBuffer;
-    uint[] args = new uint[5] { 0, 0, 0, 0, 0 }; // 일단 주문서같은거라 생각만 해두자
-
+    uint[] args = new uint[5] { 0, 0, 0, 0, 0 }; //뒤에 사용될 DrawMeshInstancedIndirect 의 가장뒤에 들어갈 인자 부분 즉 argsBuffer에  5개의 데이터가 필요하기 때문이다.
+    
     Bounds bounds;
 
     // =======================================================
@@ -96,6 +96,9 @@ public class InstancedFlocking : MonoBehaviour
         boidsBuffer = new ComputeBuffer(numOfBoids, 7 * sizeof(float));
         boidsBuffer.SetData(boidsArray);
 
+        //기본형 new ComputeBuffer(count, stride);타입을 안 적으면 기본값(Default)이 적용됨 평범한 데이터용
+        //확장형 new ComputeBuffer(count, stride, type);
+        // 대량의 인스턴스메쉬를 그리려면 확장형이 필요하며 특수한 용도라고 명시해주는 기능, IndirectArguments 그리기 전용이라고 명시해주는 부분
         argsBuffer = new ComputeBuffer(1, 5 * sizeof(uint), ComputeBufferType.IndirectArguments);
         if (boidMesh != null)
         {

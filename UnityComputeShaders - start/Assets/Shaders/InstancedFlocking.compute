@@ -1,6 +1,7 @@
 ﻿#pragma kernel CSMain
 #define GROUP_SIZE 256
 
+// 자연스러운 노이즈 함수를 만드는 부분
 float hash( float n )
 {
 	return frac(sin(n)*43758.5453);
@@ -25,6 +26,7 @@ struct Boid
 {
 	float3 position;
 	float3 direction;
+	//노이즈함수 추가
 	float noise_offset;
 };
 
@@ -42,6 +44,7 @@ int boidsCount;
 [numthreads(GROUP_SIZE,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
+	//그냥 가독성을 좋게 하기위해 instanceId 로 표현
 	uint instanceId = id.x;
 	Boid boid = boidsBuffer[instanceId];
 
