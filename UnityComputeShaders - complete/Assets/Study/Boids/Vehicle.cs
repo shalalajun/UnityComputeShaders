@@ -3,8 +3,10 @@ using UnityEngine;
 public class Vehicle : MonoBehaviour
 {
     public Transform target;
-    public float maxForce = 0.2f;
-    public float maxSpeed = 8.0f;
+    public float maxForce;
+    public float maxSpeed;
+
+    public FlowField flowField;
 
     private Vector3 position;
     private Vector3 velocity;
@@ -15,14 +17,18 @@ public class Vehicle : MonoBehaviour
         position = transform.position;
         velocity = new Vector3(0,0,2);
         acceleration = new Vector3(0,0,0);
+
+        maxSpeed = Random.Range(8.0f, 12.0f);
+        maxForce = Random.Range(2.0f, 8.0f);
     }
 
     // Update is called once per frame
     void Update()
     {
         if(target != null){
-            arrive(target.position);
+            Seek(target.position);
         }
+
         UpdateForce();
     }
 
@@ -101,15 +107,45 @@ public class Vehicle : MonoBehaviour
 
     }
 
-    void follow(Vector3 flow){
+    void follow(FlowField flow){
+    // 1. FlowField에게 내 위치를 주고 방향(Vector2)을 받아옵니다.
+        // 받아온 건 2D지만 우리는 3D 공간을 쓰므로 Vector3로 형변환합니다.
+        Vector3 desired = (Vector3)flow.Lookup(position);
 
-        Vector3 desired = TargetPos - transform.position;
+        // 2. 그 방향으로 최고 속도로 달리고 싶음
         desired = desired.normalized * maxSpeed;
 
+        // 3. 조향력 공식 (목표 속도 - 현재 속도)
         Vector3 steer = desired - velocity;
 
-        steer = Vector3.ClampMagnitude(steer,maxForce);
+        // 4. 힘을 너무 세게 주지 못하게 제한
+        steer = Vector3.ClampMagnitude(steer, maxForce);
 
+        // 5. 힘 적용
         applyForce(steer);
+            
     }
+
+    void Borders(FlowField flow)
+    {
+        // [수정된 부분] 실제 FlowField의 크기를 가져와서 계산합니다.
+        // 전체 너비 = 칸 개수(cols) * 한 칸의 크기(resolution)
+        float width = flow.cols * flow.resolution;
+        float height = flow.rows * flow.resolution;
+
+        // 팩맨 로직: 오른쪽 끝으로 나가면(width보다 커지면), 왼쪽 끝(0)으로 보냄
+        if (position.x < 0) position.x = width;
+        if (position.y < 0) position.y = height;
+        if (position.x > width) position.x = 0;
+        if (position.y > height) position.y = 0;
+    }
+
+    public void Separate(List<Vehicle> boids)
+    {
+        float desiredSeparation = 2.0f;
+        Vector3 sum = Vector3.zero;     // 도망갈 방향들의 합
+        int count = 0;
+
+    }
+
 }
