@@ -1,0 +1,29 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+
+struct GPUBoidData
+{
+    float3 position;
+    float3 velocity;
+};
+
+
+RWStructuredBuffer<GPUBoidData> computeFlockingBuffer; //사실 c#과 다른 버퍼이지만 이름을 통일시키면 수월하다 나중에 연결할테니까
+
+float deltaTime;
+
+[numthreads(256,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+    int index = id.x;
+
+    GPUBoidData boid = computeFlockingBuffer[index];
+
+    boid.position += boid.velocity * deltaTime;
+
+    computeFlockingBuffer[index] = boid;
+}

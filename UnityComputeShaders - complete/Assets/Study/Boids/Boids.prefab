@@ -95,7 +95,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c6f3d729715bb4922883254d1ba00b5d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  target: {fileID: 0}
-  maxForce: 8
   maxSpeed: 12
-  flowField: {fileID: 0}
+  maxForce: 8
+  separationWeight: 5
+  seekWeight: 0.31
+  target: {fileID: 0}
+  flockList: []
